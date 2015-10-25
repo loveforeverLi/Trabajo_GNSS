@@ -120,6 +120,7 @@ def poly_fit(lI,time):
     jumps=datajump(residual,time,0.8)
     if jumps.size>0:
         pslip=np.argmax(residual[jumps])
+        pslip=jumps[pslip]
     else:
         pslip=0
     return Poly,pslip
