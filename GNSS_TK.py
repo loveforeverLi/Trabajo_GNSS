@@ -77,31 +77,48 @@ def getdata_stationpair(station1,station2,strsat=None):
 
 def get_obstimes(t,first,last):
     t=np.array(t)
-    #new_t=t[(t>=first) & (t<=last)]
     new_t=t[np.logical_and(t>=first, t<=last)]
-    #indices=np.where(np.logical_and(t>=first, t<=last))
-    return new_t#,indices[0]
+    return new_t
 
 def datajump(lI,times,threshold=0.5): #lInput: lI=L1-L2, times.
     jumps=[]
     jumps = np.where(np.diff(np.hstack(([0],lI)))>threshold)
     return jumps[0]
     
-def sub_arcs(lI,t,jumps):
-    miniarcs=np.split(lI,jumps)
-    ntimes=np.split(t,jumps)
-    return miniarcs,ntimes
+def sub_arcs(lI,jumps): #returns intervals of each sub-arc inside
+    miniarcs=np.split(range(lI.size),jumps)
+    return miniarcs
     
-def remove_short(miniarcs,ntimes):
-    i=0
-    for arc in miniarcs:
-        if arc.size<10:
-            miniarcs=np.delete(miniarcs,i)
-            ntimes=np.delete(ntimes,i)
-        i+=1
-    return miniarcs,ntimes
+def remove_short(miniarcs1,miniarcs2,IP1,IP2,IC1,IC2,t,D): #this function should eliminate short arcs,
+                                    #so deletes points in Delays arrays, times and distance (IPP)
+    for arc in range(len(miniarcs1)):
+        print "Arc # ",arc
+        #gets sub-arcs with les than 10 elements
+        if miniarcs1[arc].size<10:
+            print "Sub-Arco a eliminar",arc,miniarcs1[arc]
+            elim={}
+            for j in range(len(miniarcs2)):#eah sub arc
+                for k in range(miniarcs2[j].size): 
+                    if miniarcs2[j][k] in miniarcs1[arc]:
+                        if j in elim:
+                            elim[j].append(k)
+                        else:
+                            elim[j]=[]
+                            elim[j].append(k) #sub arc number and where is in that sub-arc
+            
+            miniarcs1=np.delete(miniarcs1,arc)
+            print "Elementos eliminados en estacion 2: ",elim 
+            for key in elim:
+                miniarcs2[key]=np.delete(miniarcs2[key],tuple(elim[key]))
+            #no sirve cuando hay que eliminar mas de dos arcos
+            print "# de subarcos de arc1: ",len(miniarcs1)
+            print "# de subarcos de arc2: ",len(miniarcs2)
+            break
+            
+    return miniarcs1,miniarcs2,IP1,IP2,IC1,IC2,t,D
+            
   
-#takes N elements from LI=L1-L2 and performs interpolation, 
+ #takes N elements from LI=L1-L2 and performs interpolation, 
 #detcts datajumps in the diference between the polinomyal fit and real data 
 def poly_fit(lI,time):
     N=10 #window 
@@ -122,7 +139,7 @@ def poly_fit(lI,time):
         pslip=np.argmax(residual[jumps])
         pslip=jumps[pslip]
     else:
-        pslip=0
+        pslip=None
     return Poly,pslip
 
 def outlier_detect(L,times,k=10):
@@ -159,7 +176,8 @@ def fixslip(t,L,threshold=0.8):
     confirmed=[]#confirmed outliers
     while len(Poly)!=0: #if there are outliers
         __,oslip=outlier_detect(L,t*3600) #biggest slip detected with outlier factor
-        if pslip==oslip and pslip not in confirmed and pslip!=0:
+   
+        if pslip==oslip and pslip not in confirmed and pslip!=None:
             confirmed.append(pslip) #recorded as an outlier
             L=np.delete(L,pslip) #remove outlier
             t=np.delete(t,pslip)
@@ -171,6 +189,20 @@ def fixslip(t,L,threshold=0.8):
             pslip=npslip
     return L,t,confirmed
     
+    
+def remove_fix(miniarcs1,miniarcs2,oslip1): #deletes confirmed slip
+    elim=miniarcs1[oslip1]
+    print "Delete index: ",elim
+    for subarc in range(len(miniarcs2)):
+        if elim in miniarcs2[subarc]:
+            i=np.where(miniarcs2[subarc]==elim)
+            print miniarcs2[subarc]
+            miniarcs2[subarc]=np.delete(miniarcs2[subarc],i)
+            print miniarcs2[subarc]
+    miniarcs1=np.delete(miniarcs1,oslip1)
+    
+    return miniarcs1,miniarcs2
+
 def levelphase(ICODE,IPHASE,ELEV):
     #L=np.sum((ICODE-IPHASE)*(np.sin(ELEV)**2))/np.sum((np.sin(ELEV))**2) #leveling factor
     L=np.sum(ICODE-IPHASE)/ICODE.size #leveling factor
