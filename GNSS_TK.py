@@ -75,52 +75,60 @@ def getdata_stationpair(station1,station2,strsat=None):
     
     return t1,t2,Icode1,Iphase1,Icode2,Iphase2,VTECphase1,VTECphase2,ELEV1,ELEV2,IPP1,IPP2
 
-def get_obstimes(t,first,last):
+def get_obstimes(t,first,last): #gets observations in an interval
     t=np.array(t)
     new_t=t[np.logical_and(t>=first, t<=last)]
     return new_t
 
-def datajump(lI,times,threshold=0.5): #lInput: lI=L1-L2, times.
+def datajump(lI,times,threshold=0.5): #Input: lI=L1-L2, times. Detects jumps in data depending on a threshold
     jumps=[]
     jumps = np.where(np.diff(np.hstack(([0],lI)))>threshold)
-    return jumps[0]
+    return jumps[0] 
     
-def sub_arcs(lI,jumps): #returns intervals of each sub-arc inside
+def sub_arcs(lI,jumps): #returns intervals of each sub-arc inside an arc
     miniarcs=np.split(range(lI.size),jumps)
     return miniarcs
     
-def remove_short(miniarcs1,miniarcs2,IP1,IP2,IC1,IC2,t,D): #this function should eliminate short arcs,
-                                    #so deletes points in Delays arrays, times and distance (IPP)
+def remove_short(miniarcs1,miniarcs2): #Deletes short arcs, on a subarc
+    toerase=[]
     for arc in range(len(miniarcs1)):
         print "Arc # ",arc
         #gets sub-arcs with les than 10 elements
         if miniarcs1[arc].size<10:
+            toerase.append(arc)
             print "Sub-Arco a eliminar",arc,miniarcs1[arc]
-            elim={}
-            for j in range(len(miniarcs2)):#eah sub arc
-                for k in range(miniarcs2[j].size): 
-                    if miniarcs2[j][k] in miniarcs1[arc]:
-                        if j in elim:
-                            elim[j].append(k)
-                        else:
-                            elim[j]=[]
-                            elim[j].append(k) #sub arc number and where is in that sub-arc
+    elim={}
+    for j in range(len(miniarcs2)):#eah sub arc
+        for k in range(miniarcs2[j].size):
+            for arc in toerase: #for every arc to delete
+                if miniarcs2[j][k] in miniarcs1[arc]:
+                    if j in elim:
+                        elim[j].append(k)
+                    else:
+                        elim[j]=[]
+                        elim[j].append(k) #sub arc number in miniarcs2 and where is in that sub-arc
+           
+    for arc in toerase:
+        miniarcs1=np.delete(miniarcs1,arc)
+    
+    print "Deleted elements on the other station: ",elim 
+    for key in elim:
+        miniarcs2[key]=np.delete(miniarcs2[key],tuple(elim[key]))
             
-            miniarcs1=np.delete(miniarcs1,arc)
-            print "Elementos eliminados en estacion 2: ",elim 
-            for key in elim:
-                miniarcs2[key]=np.delete(miniarcs2[key],tuple(elim[key]))
-            #no sirve cuando hay que eliminar mas de dos arcos
-            print "# de subarcos de arc1: ",len(miniarcs1)
-            print "# de subarcos de arc2: ",len(miniarcs2)
-            break
+    print "# of subarcs arc1: ",len(miniarcs1)
+    print "# of subarcs of arc2 (other station): ",len(miniarcs2)
+    
+    
+    
+    
             
-    return miniarcs1,miniarcs2,IP1,IP2,IC1,IC2,t,D
+    return miniarcs1,miniarcs2
             
   
- #takes N elements from LI=L1-L2 and performs interpolation, 
-#detcts datajumps in the diference between the polinomyal fit and real data 
+ 
 def poly_fit(lI,time):
+    #takes N elements from LI=L1-L2 and performs interpolation, 
+    #detects datajumps in the diference between the polinomyal fit and real data 
     N=10 #window 
     tPoly=[]
     Poly=[]
@@ -170,16 +178,16 @@ def outlier_detect(L,times,k=10):
     
     return outliers,oslip
     
-#if the biggest slip computed with polifit and outlier factor is the same
-def fixslip(t,L,threshold=0.8):
-    Poly,pslip=poly_fit(L,t) #residuals bigger than threshold 0.8, and biggest slip detected
-    confirmed=[]#confirmed outliers
+
+def confirmed_slip(t,L,threshold=0.8):
+    #if the biggest slip computed with polifit and outlier factor is the same an outlier is confirmed
+    Poly,pslip=poly_fit(L,t)
+    confirmed=[]
     while len(Poly)!=0: #if there are outliers
-        __,oslip=outlier_detect(L,t*3600) #biggest slip detected with outlier factor
-   
-        if pslip==oslip and pslip not in confirmed and pslip!=None:
-            confirmed.append(pslip) #recorded as an outlier
-            L=np.delete(L,pslip) #remove outlier
+        __,oslip=outlier_detect(L,t*3600) 
+        if pslip==oslip and pslip not in confirmed and pslip!=None: 
+            confirmed.append(pslip) 
+            L=np.delete(L,pslip) #remove outlier so it kepps looking for new different outliers
             t=np.delete(t,pslip)
             print "Poly: ",pslip,"Outlier factor: ",oslip
         Poly,npslip=poly_fit(L,t)  
@@ -187,10 +195,10 @@ def fixslip(t,L,threshold=0.8):
             break
         else:
             pslip=npslip
-    return L,t,confirmed
+    return confirmed
     
     
-def remove_fix(miniarcs1,miniarcs2,oslip1): #deletes confirmed slip
+def remove_slip(miniarcs1,miniarcs2,oslip1): #deletes confirmed slip
     elim=miniarcs1[oslip1]
     print "Delete index: ",elim
     for subarc in range(len(miniarcs2)):
@@ -203,9 +211,9 @@ def remove_fix(miniarcs1,miniarcs2,oslip1): #deletes confirmed slip
     
     return miniarcs1,miniarcs2
 
-def levelphase(ICODE,IPHASE,ELEV):
-    #L=np.sum((ICODE-IPHASE)*(np.sin(ELEV)**2))/np.sum((np.sin(ELEV))**2) #leveling factor
-    L=np.sum(ICODE-IPHASE)/ICODE.size #leveling factor
+def levelphase(ICODE,IPHASE,ELEV): 
+    L=np.sum((ICODE-IPHASE)*(np.sin(ELEV)**2))/np.sum((np.sin(ELEV))**2) #leveling factor
+    #L=np.sum(ICODE-IPHASE)/ICODE.size #leveling factor
     new_IPHASE=IPHASE+L
     return L,new_IPHASE
     
