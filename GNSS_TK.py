@@ -75,10 +75,62 @@ def getdata_stationpair(station1,station2,strsat=None):
     
     return t1,t2,Icode1,Iphase1,Icode2,Iphase2,VTECphase1,VTECphase2,ELEV1,ELEV2,IPP1,IPP2
 
+def get_arcs(t,Icode,Iphase,ELEV,IPPS): #returns arcs with observations time, phase & code delay,IPP
+    Phase=[]
+    Code=[]
+    Elevetion=[]
+    for i in t:
+        Phase.append(Iphase[i])
+        Code.append(Icode[i])
+        Elevetion.append(ELEV[i])
+        
+    t=adjust_times(t)
+    Phase,Code,t,Elevetion=np.array(Phase),np.array(Code),np.array(t),np.array(Elevetion)
+    
+    ant=0
+    limits=[]
+    for i in range(1,len(t)):
+        if t[i]-t[i-1]>1800: #si hay mas de 2 horas entre una observacion y la otra es que ya es otro arco
+            limits.append(i)
+
+    arcs=np.split(range(t.size),limits)
+    obs={} #Key: Number if arc, Values: time of observations and Phase Delays
+    i=0
+    for arc in arcs:
+        obs[i]=[t[arc],Phase[arc],Code[arc],Elevetion[arc]]
+        i+=1
+    return obs
+
+
 def get_obstimes(t,first,last): #gets observations in an interval
     t=np.array(t)
     new_t=t[np.logical_and(t>=first, t<=last)]
     return new_t
+
+def adjust_times(t): #sync station times, returns times in common and difference
+    np.array(t)
+    for i in range(len(t)):
+        if t[i]%30!=0:
+            t[i]=t[i]+(30-t[i]%30)
+    return t
+
+        
+def sync_times(t1,t2): #syncronice station times, returns times in common and difference
+    diff1,diff2=0,0
+    if min(t1)>=min(t2):
+        t2=t2[t2>=min(t1)]
+    else:
+        t1=t1[t1>=min(t2)]
+    
+    if (t1[0]%30)==0 and t1[0]>t2[0]:
+        diff2=t1[0]-t2[0]
+        t2=t2+diff2   
+        
+    elif (t2[0]%30)==0 and t2[0]>t1[0]:
+        diff1=t2[0]-t1[0]
+        t1=t1+diff1
+    return np.intersect1d(t1,t2),diff1,diff2 #como el tiempo es la clave se puede usar esto!
+        
 
 def datajump(lI,times,threshold=0.5): #Input: lI=L1-L2, times. Detects jumps in data depending on a threshold
     jumps=[]
@@ -88,15 +140,15 @@ def datajump(lI,times,threshold=0.5): #Input: lI=L1-L2, times. Detects jumps in 
 def sub_arcs(lI,jumps): #returns intervals of each sub-arc inside an arc
     miniarcs=np.split(range(lI.size),jumps)
     return miniarcs
-    
+
 def remove_short(miniarcs1,miniarcs2): #Deletes short arcs, on a subarc
     toerase=[]
     for arc in range(len(miniarcs1)):
-        print "Arc # ",arc
+        print "SubArc # ",arc
         #gets sub-arcs with les than 10 elements
         if miniarcs1[arc].size<10:
             toerase.append(arc)
-            print "Sub-Arco a eliminar",arc,miniarcs1[arc]
+            print "Sub-Arcs deleted",arc,miniarcs1[arc]
     elim={}
     for j in range(len(miniarcs2)):#eah sub arc
         for k in range(miniarcs2[j].size):
@@ -107,25 +159,19 @@ def remove_short(miniarcs1,miniarcs2): #Deletes short arcs, on a subarc
                     else:
                         elim[j]=[]
                         elim[j].append(k) #sub arc number in miniarcs2 and where is in that sub-arc
-           
-    for arc in toerase:
-        miniarcs1=np.delete(miniarcs1,arc)
+    #print "Indices de subarcos a eliminar: ",toerase       
+    #for arc in toerase:
+    miniarcs1=np.delete(miniarcs1,tuple(toerase))
     
-    print "Deleted elements on the other station: ",elim 
+    print "\nDeleted elements on the other station: ",elim 
     for key in elim:
         miniarcs2[key]=np.delete(miniarcs2[key],tuple(elim[key]))
             
-    print "# of subarcs arc1: ",len(miniarcs1)
-    print "# of subarcs of arc2 (other station): ",len(miniarcs2)
-    
-    
-    
-    
+    print "\nNew # of subarcs arc1: ",len(miniarcs1)#,miniarcs1
+    print "\nNew # of subarcs of arc2 (other station): ",len(miniarcs2)#,miniarcs2
             
     return miniarcs1,miniarcs2
-            
   
- 
 def poly_fit(lI,time):
     #takes N elements from LI=L1-L2 and performs interpolation, 
     #detects datajumps in the diference between the polinomyal fit and real data 
@@ -204,9 +250,9 @@ def remove_slip(miniarcs1,miniarcs2,oslip1): #deletes confirmed slip
     for subarc in range(len(miniarcs2)):
         if elim in miniarcs2[subarc]:
             i=np.where(miniarcs2[subarc]==elim)
-            print miniarcs2[subarc]
+            #print miniarcs2[subarc]
             miniarcs2[subarc]=np.delete(miniarcs2[subarc],i)
-            print miniarcs2[subarc]
+            #print miniarcs2[subarc]
     miniarcs1=np.delete(miniarcs1,oslip1)
     
     return miniarcs1,miniarcs2
