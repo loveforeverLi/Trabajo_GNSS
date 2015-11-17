@@ -36,7 +36,6 @@ def getdata(nfile,ofile,strsat=None): #one week data
                     time=observation.time
                     R=6.378e6 #earth radius
                     mapp=1/np.cos(np.arcsin(R/(R+350000))*np.sin(elev))
-                    t.append(np.trunc(gpstk.YDSTime(time).sod))
                     IPP=rec_pos.getIonosphericPiercePoint(elev, azim, 350000).asECEF()
                    
                     if np.size(np.where(obs_types=='C1'))!=0 and np.size(np.where(obs_types=='P2'))!=0 and np.size(np.where(obs_types=='L1'))!=0 and np.size(np.where(obs_types=='L2'))!=0: 
@@ -50,6 +49,8 @@ def getdata(nfile,ofile,strsat=None): #one week data
                         L2=observation.getObs(sat, L2_idx).data*gpstk.L2_WAVELENGTH_GPS
                        
                         if R2<3e7 and R1<3e7 and L2<3e7 and L1<3e7: #Distances should be in order of 1e7 meters, more than that is considered an error  
+                            
+                            t.append(np.trunc(gpstk.YDSTime(time).sod))
                             iono_delay_c=alfa*(R2-R1) 
                             iono_delay_p=alfa*(L1-L2)
                             vtec_C=iono_delay_c/mapp
