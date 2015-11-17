@@ -10,6 +10,7 @@ def getdata(nfile,ofile,strsat=None): #one week data
     VTECphase,VTECcode={},{}
     ELEV={}
     PhaseL1,PhaseL2={},{}
+    CodeL1,CodeL2={},{}
     oheader,odata=gpstk.readRinex3Obs(ofile,strict=True) 
     nheader,ndata=gpstk.readRinex3Nav(nfile)
     bcestore = gpstk.GPSEphemerisStore() 
@@ -37,6 +38,7 @@ def getdata(nfile,ofile,strsat=None): #one week data
                     R=6.378e6 #earth radius
                     mapp=1/np.cos(np.arcsin(R/(R+350000))*np.sin(elev))
                     IPP=rec_pos.getIonosphericPiercePoint(elev, azim, 350000).asECEF()
+                    t.append(np.trunc(gpstk.YDSTime(time).sod))
                    
                     if np.size(np.where(obs_types=='C1'))!=0 and np.size(np.where(obs_types=='P2'))!=0 and np.size(np.where(obs_types=='L1'))!=0 and np.size(np.where(obs_types=='L2'))!=0: 
                         C1_idx = np.where(obs_types=='C1')[0][0] 
@@ -50,7 +52,7 @@ def getdata(nfile,ofile,strsat=None): #one week data
                        
                         if R2<3e7 and R1<3e7 and L2<3e7 and L1<3e7: #Distances should be in order of 1e7 meters, more than that is considered an error  
                             
-                            t.append(np.trunc(gpstk.YDSTime(time).sod))
+                            #t.append(np.trunc(gpstk.YDSTime(time).sod))
                             iono_delay_c=alfa*(R2-R1) 
                             iono_delay_p=alfa*(L1-L2)
                             vtec_C=iono_delay_c/mapp
@@ -63,6 +65,8 @@ def getdata(nfile,ofile,strsat=None): #one week data
                             IPPS[np.trunc(gpstk.YDSTime(time).sod)]=IPP
                             PhaseL1[np.trunc(gpstk.YDSTime(time).sod)]=L1
                             PhaseL2[np.trunc(gpstk.YDSTime(time).sod)]=L2
+                            CodeL1[np.trunc(gpstk.YDSTime(time).sod)]=R1
+                            CodeL2[np.trunc(gpstk.YDSTime(time).sod)]=R2
                             
                             #stec=(iono_delay_p*f1**2)/(-40.3) #STEC delay on phase [mm]
                             #vtec=stec/mapp #vertical delay!
@@ -70,34 +74,44 @@ def getdata(nfile,ofile,strsat=None): #one week data
             print "Needs both L1 and L2 frequencies to compute delay"
             break
     
-    return t,Icode,Iphase,VTECphase,ELEV,IPPS,PhaseL1,PhaseL2
+    return t,Icode,Iphase,VTECphase,ELEV,IPPS,PhaseL1,PhaseL2,CodeL1,CodeL2
 
 def getdata_stationpair(station1,station2,strsat=None): 
     s1n_file,s1o_file=station1[0],station1[1] #station pair
     s2n_file,s2o_file=station2[0],station2[1] 
     
-    t1,Icode1,Iphase1,VTECphase1,ELEV1,IPP1,L11,L12=getdata(s1n_file,s1o_file,strsat)
-    t2,Icode2,Iphase2,VTECphase2,ELEV2,IPP2,L21,L22=getdata(s2n_file,s2o_file,strsat)
+    t1,Icode1,Iphase1,VTECphase1,ELEV1,IPP1,L11,L12,C11,C12=getdata(s1n_file,s1o_file,strsat)
+    t2,Icode2,Iphase2,VTECphase2,ELEV2,IPP2,L21,L22,C21,C22=getdata(s2n_file,s2o_file,strsat)
     
-    return t1,t2,Icode1,Iphase1,Icode2,Iphase2,VTECphase1,VTECphase2,ELEV1,ELEV2,IPP1,IPP2,L11,L12,L21,L22
+    return t1,t2,Icode1,Iphase1,Icode2,Iphase2,VTECphase1,VTECphase2,ELEV1,ELEV2,IPP1,IPP2,L11,L12,L21,L22,C11,C12,C21,C22
 
-def get_arcs(t,Icode,Iphase,ELEV,IPPS,L1,L2): #returns arcs with observations time, phase & code delay,IPP
+def get_arcs(t,Icode,Iphase,ELEV,IPPS,L1,L2,C1,C2): #returns arcs with observations time, phase & code delay,IPP
     Phase=[]
     Code=[]
     Elevetion=[]
     PhaseL1=[]
     PhaseL2=[]
+    CodeL1=[]
+    CodeL2=[]
     IPP=[]
+    notfound=0
     for i in t:
-        Phase.append(Iphase[i])
-        Code.append(Icode[i])
-        Elevetion.append(ELEV[i])
-        PhaseL1.append(L1[i])
-        PhaseL2.append(L2[i])
-        IPP.append(IPPS[i])
-        
+        if i in Iphase.keys():
+            Phase.append(Iphase[i])
+            Code.append(Icode[i])
+            Elevetion.append(ELEV[i])
+            PhaseL1.append(L1[i])
+            PhaseL2.append(L2[i])
+            CodeL1.append(C1[i])
+            CodeL2.append(C2[i])
+            IPP.append(IPPS[i])
+        else:
+            #print "Tiempo no encontrado: ",i
+            notfound+=1
+    if notfound>0:
+        print "Tiempos no encontrados :",notfound
     t=adjust_times(t)
-    Phase,Code,t,Elevetion,PhaseL1,PhaseL2=np.array(Phase),np.array(Code),np.array(t),np.array(Elevetion),np.array(PhaseL1),np.array(PhaseL2)
+    Phase,Code,t,Elevetion,PhaseL1,PhaseL2,CodeL1,CodeL2=np.array(Phase),np.array(Code),np.array(t),np.array(Elevetion),np.array(PhaseL1),np.array(PhaseL2),np.array(CodeL1),np.array(CodeL2)
     
     ant=0
     limits=[]
@@ -109,7 +123,7 @@ def get_arcs(t,Icode,Iphase,ELEV,IPPS,L1,L2): #returns arcs with observations ti
     obs={} #Key: Number arc, Values: time of observations and Phase Delays
     i=0
     for arc in arcs:
-        obs[i]=[t[arc],Phase[arc],Code[arc],Elevetion[arc],PhaseL1[arc],PhaseL2[arc]]
+        obs[i]=[t[arc],Phase[arc],Code[arc],Elevetion[arc],PhaseL1[arc],PhaseL2[arc],CodeL1[arc],CodeL2[arc]]
         i+=1
     return obs
 
