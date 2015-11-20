@@ -20,8 +20,6 @@ def getdata(nfile,ofile,strsat=None): #one week data
         bcestore.addEphemeris(ephem)
     bcestore.SearchNear() 
    
-    
-    #alfa=f1**2/(f1**2-f2**2)
     alfa=1/((f1**2/f2**2)-1)
     for observation in odata:
         sats=[satID for satID, datumList in observation.obs.iteritems() if str(satID).split()[0]=="GPS" ] 
@@ -96,7 +94,7 @@ def get_arcs(t,Icode,Iphase,ELEV,IPPS,L1,L2,C1,C2): #returns arcs with observati
     IPP=[]
     notfound=0
     for i in t:
-        if i in Iphase.keys():
+        if i in Iphase.keys(): #all times in t should correspond to the keys in the dictionaries.
             Phase.append(Iphase[i])
             Code.append(Icode[i])
             Elevetion.append(ELEV[i])
@@ -113,14 +111,13 @@ def get_arcs(t,Icode,Iphase,ELEV,IPPS,L1,L2,C1,C2): #returns arcs with observati
     t=adjust_times(t)
     Phase,Code,t,Elevetion,PhaseL1,PhaseL2,CodeL1,CodeL2=np.array(Phase),np.array(Code),np.array(t),np.array(Elevetion),np.array(PhaseL1),np.array(PhaseL2),np.array(CodeL1),np.array(CodeL2)
     
-    ant=0
     limits=[]
     for i in range(1,len(t)):
         if t[i]-t[i-1]>3600: 
             limits.append(i)
 
     arcs=np.split(range(t.size),limits)
-    obs={} #Key: Number arc, Values: time of observations and Phase Delays
+    obs={} #Key: Number arc, Values: array time of observations , arrayPhase Delays, array code etc.
     i=0
     for arc in arcs:
         obs[i]=[t[arc],Phase[arc],Code[arc],Elevetion[arc],PhaseL1[arc],PhaseL2[arc],CodeL1[arc],CodeL2[arc]]
@@ -139,23 +136,7 @@ def adjust_times(t): #sync station times, returns times in common and difference
             t[i]=t[i]+(30-t[i]%30)
     return t
 
-        
-def sync_times(t1,t2): #syncronice station times, returns times in common and difference
-    diff1,diff2=0,0
-    if min(t1)>=min(t2):
-        t2=t2[t2>=min(t1)]
-    else:
-        t1=t1[t1>=min(t2)]
-    
-    if (t1[0]%30)==0 and t1[0]>t2[0]:
-        diff2=t1[0]-t2[0]
-        t2=t2+diff2   
-        
-    elif (t2[0]%30)==0 and t2[0]>t1[0]:
-        diff1=t2[0]-t1[0]
-        t1=t1+diff1
-    return np.intersect1d(t1,t2),diff1,diff2 #como el tiempo es la clave se puede usar esto!
-   
+
 def getIPPS(IPP,tboth): #returns IPP of observations in a time
     DIPP={}
     for t in IPP:
@@ -212,8 +193,8 @@ def poly_fit(lI,time):
     #takes N elements from LI=L1-L2 and performs interpolation, 
     #detects datajumps in the diference between the polinomyal fit and real data 
     N=10 #window 
-    tPoly=[]
-    Poly=[]
+    tPoly ,Poly=[],[]
+    
     for i in range(0,lI.size,N): 
         x=np.array(time[i:i+N])
         y=np.array(lI[i:i+N])
@@ -255,8 +236,12 @@ def outlier_detect(L,times,k=10):
                 Wpq=Wpq/deno
                 OFt+=(Wpq*np.abs(L[i]-L[neighbour]))
         outliers.append(OFt) 
+    
     outliers=np.array(outliers)
-    oslip=np.argmax(outliers) #term with biggest outlier factor
+    if len(outliers)!=0:
+        oslip=np.argmax(outliers) #term with biggest outlier factor
+    else:
+        oslip=None
     
     return outliers,oslip
     
@@ -295,7 +280,6 @@ def remove_slip(miniarcs1,miniarcs2,oslip1): #deletes confirmed slip
 
 def levelphase(ICODE,IPHASE,ELEV): 
     L=np.sum((ICODE-IPHASE)*(np.sin(ELEV)**2))/np.sum((np.sin(ELEV))**2) #leveling factor
-    #L=np.sum(ICODE-IPHASE)/ICODE.size #leveling factor
     new_IPHASE=IPHASE+L
     return L,new_IPHASE
     
