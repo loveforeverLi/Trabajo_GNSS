@@ -28,6 +28,7 @@ def getdata(nfile,ofile,strsat=None): #one week data
             for sat in sats:
                 if  str(sat)==strsat :#Return for a specific satellite
                     eph = bcestore.findEphemeris(sat, observation.time) 
+                    Tgd=eph.Tgd
                     sat_pos = eph.svXvt(observation.time)
                     rec_pos = gpstk.Position(oheader.antennaPosition[0], oheader.antennaPosition[1], oheader.antennaPosition[2]).asECEF()
                     elev = oheader.antennaPosition.elvAngle(sat_pos.x)
@@ -72,16 +73,17 @@ def getdata(nfile,ofile,strsat=None): #one week data
             print "Needs both L1 and L2 frequencies to compute delay"
             break
     
-    return t,Icode,Iphase,VTECphase,ELEV,IPPS,PhaseL1,PhaseL2,CodeL1,CodeL2
+    
+    return t,Icode,Iphase,VTECphase,ELEV,IPPS,PhaseL1,PhaseL2,CodeL1,CodeL2,Tgd
 
 def getdata_stationpair(station1,station2,strsat=None): 
     s1n_file,s1o_file=station1[0],station1[1] #station pair
     s2n_file,s2o_file=station2[0],station2[1] 
     
-    t1,Icode1,Iphase1,VTECphase1,ELEV1,IPP1,L11,L12,C11,C12=getdata(s1n_file,s1o_file,strsat)
-    t2,Icode2,Iphase2,VTECphase2,ELEV2,IPP2,L21,L22,C21,C22=getdata(s2n_file,s2o_file,strsat)
+    t1,Icode1,Iphase1,VTECphase1,ELEV1,IPP1,L11,L12,C11,C12,Tgd=getdata(s1n_file,s1o_file,strsat)
+    t2,Icode2,Iphase2,VTECphase2,ELEV2,IPP2,L21,L22,C21,C22,__=getdata(s2n_file,s2o_file,strsat)
     
-    return t1,t2,Icode1,Iphase1,Icode2,Iphase2,VTECphase1,VTECphase2,ELEV1,ELEV2,IPP1,IPP2,L11,L12,L21,L22,C11,C12,C21,C22
+    return t1,t2,Icode1,Iphase1,Icode2,Iphase2,VTECphase1,VTECphase2,ELEV1,ELEV2,IPP1,IPP2,L11,L12,L21,L22,C11,C12,C21,C22,Tgd 
 
 def get_arcs(t,Icode,Iphase,ELEV,IPPS,L1,L2,C1,C2): #returns arcs with observations time, phase & code delay,IPP
     Phase=[]
@@ -149,7 +151,7 @@ def getIPPS(IPP,tboth): #returns IPP of observations in a time
                 DIPP[t]=IPP[t]
     return DIPP
 
-def datajump(lI,times,threshold=0.5): #Input: lI=L1-L2, times. Detects jumps in data depending on a threshold
+def datajump(lI,threshold=0.5): #Input: lI=L1-L2, times. Detects jumps in data depending on a threshold
     jumps=[]
     jumps=np.where(np.abs(np.diff(np.hstack(([0],lI))))>threshold) 
     return jumps[0] 
@@ -205,7 +207,7 @@ def poly_fit(lI,time):
             tPoly.append(x[i]) 
     Poly=np.array(Poly)
     residual=lI-Poly
-    jumps=datajump(residual,time,0.8)
+    jumps=datajump(residual,0.8)
     if jumps.size>0:
         pslip=np.argmax(residual[jumps])
         pslip=jumps[pslip]
@@ -213,7 +215,7 @@ def poly_fit(lI,time):
         pslip=None
     return Poly,pslip
 
-def outlier_detect(L,times,k=10):
+def outlier_detect(L,times,k=10):#k=30? 15 min
     outliers=[] #set of outlier factors for every element in L=L1-L2
     for i in range(0,L.size):
         if i<(k/2+1):
