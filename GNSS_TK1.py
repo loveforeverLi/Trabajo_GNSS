@@ -126,6 +126,18 @@ def get_arcs(t,Icode,Iphase,ELEV,IPPS,L1,L2,C1,C2): #returns arcs with observati
         i+=1
     return obs
 
+def match_arcs(obs1,obs2):#match arcs on the time of the day, this assumes that there's to arcs observed in a day so that
+    #assumption in not always right
+    if len(obs1)==1:
+        if obs1[0][0][0]/3600>12:
+            obs1[1]=obs1[0]
+            del(obs2[0])
+    if len(obs2)==1:
+        if obs2[0][0][0]/3600>12:
+            obs2[1]=obs2[0]
+            del(obs2[0])
+    return obs1,obs2
+
 def get_obstimes(t,first,last): #gets observations in an interval
     t=np.array(t)
     new_t=t[np.logical_and(t>=first, t<=last)]
