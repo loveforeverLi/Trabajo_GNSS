@@ -278,7 +278,7 @@ def confirmed_slip(t,L):
         if npslip==pslip:
             break
         else:
-            pslip=npslip
+            pslip=npslip   
     return confirmed
     
     
