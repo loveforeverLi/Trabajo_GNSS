@@ -351,43 +351,43 @@ def levelphase(ICODE,IPHASE,ELEV):
 
 
 def datajumpMP(jumps1,jumps2, Code1L1,Code1L2,Phase1L1,Phase1L2,Code2L1,Code2L2,Phase2L1,Phase2L2):
-	#Detect Multipass cycle slips
-	#MP1 & MP2 In station 1 if MP slips are not in jumps, they are added
-	gamma=gpstk.GAMMA_GPS
-	MP11=Code1L1-(1+(2/(gamma-1)))*Phase1L1 + (2/(gamma-1))*Phase1L2
-	MP12=Code1L2-((2*gamma*Phase1L1)/(gamma-1))+(((2*gamma)/(gamma-1))-1)*Phase1L2
-	jumpsMP11=datajump(MP11,threshold=10)
-	jumpsMP12=datajump(MP12,threshold=10)
+    #Detect Multipass cycle slips
+    #MP1 & MP2 In station 1 if MP slips are not in jumps, they are added
+    gamma=gpstk.GAMMA_GPS
+    MP11=Code1L1-(1+(2/(gamma-1)))*Phase1L1 + (2/(gamma-1))*Phase1L2
+    MP12=Code1L2-((2*gamma*Phase1L1)/(gamma-1))+(((2*gamma)/(gamma-1))-1)*Phase1L2
+    jumpsMP11=datajump(MP11,threshold=10)
+    jumpsMP12=datajump(MP12,threshold=10)
 
-	#Add multipass slips to cycle slips
-	for i in jumpsMP11:
-		if i not in jumps1:
-			jumps1=np.append(jumps1,i)
-			jumps1=np.sort(jumps1)
+    #Add multipass slips to cycle slips
+    for i in jumpsMP11:
+        if i not in jumps1:
+            jumps1=np.append(jumps1,i)
+            jumps1=np.sort(jumps1)
 
-	for i in jumpsMP12:
-		if i not in jumps1:
-			jumps1=np.append(jumps1,i)
-			jumps1=np.sort(jumps1)
+    for i in jumpsMP12:
+        if i not in jumps1:
+            jumps1=np.append(jumps1,i)
+            jumps1=np.sort(jumps1)
 
-	#MP1 & MP2 In station 2
-	MP21=Code2L1-(1+(2/(gamma-1)))*Phase2L1 + (2/(gamma-1))*Phase2L2
-	MP22=Code2L2-((2*gamma*Phase2L1)/(gamma-1))+(((2*gamma)/(gamma-1))-1)*Phase2L2
-	jumpsMP21=datajump(MP21,threshold=10)
-	jumpsMP22=datajump(MP22,threshold=10)
+    #MP1 & MP2 In station 2
+    MP21=Code2L1-(1+(2/(gamma-1)))*Phase2L1 + (2/(gamma-1))*Phase2L2
+    MP22=Code2L2-((2*gamma*Phase2L1)/(gamma-1))+(((2*gamma)/(gamma-1))-1)*Phase2L2
+    jumpsMP21=datajump(MP21,threshold=10)
+    jumpsMP22=datajump(MP22,threshold=10)
 
 
-	for i in jumpsMP21:
-		if i not in jumps2:
-			jumps2=np.append(jumps2,i)
-			jumps2=np.sort(jumps2)
+    for i in jumpsMP21:
+        if i not in jumps2:
+            jumps2=np.append(jumps2,i)
+            jumps2=np.sort(jumps2)
 
-	for i in jumpsMP22:
-		if i not in jumps2:
-			jumps2=np.append(jumps2,i)
-			jumps2=np.sort(jumps2)
-			
-	return jumps1,jumps2
+    for i in jumpsMP22:
+        if i not in jumps2:
+            jumps2=np.append(jumps2,i)
+            jumps2=np.sort(jumps2)
+
+    return jumps1,jumps2
 
 
 
