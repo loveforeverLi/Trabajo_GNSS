@@ -329,7 +329,7 @@ def remove_slip(miniarcs1,miniarcs2,oslip1): #deletes confirmed slip
 
 def Smooth_code(R,L):
     size=R.size
-    N=100
+    N=10
     #size/2
     
     for k in range(1,size):
